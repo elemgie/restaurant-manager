@@ -23,9 +23,8 @@ class Waiter(BaseModel):
 
 class Product(BaseModel):
   name = TextField()
-  category = TextField()
-  description = TextField()
   price = DecimalField()
+  description = TextField()
 
 class Bill(BaseModel):
   tableID = ForeignKeyField(Table, backref='bills')
@@ -60,6 +59,9 @@ def deleteTable(tableID):
 
 def getNumberOfFreeTables():
   return Table.select().count() - getNumberOfOpenBills()
+
+def getListOfFreeTables():
+  return Table.select().join(Bill, JOIN.LEFT_OUTER).where(Bill.id.is_null())
 
 # Staff management
 
@@ -97,16 +99,24 @@ def getWaiter(waiterID):
 
 # Menu management
 
-def addProduct(nameForm, categoryForm, descriptionForm, priceForm):
-  if nameForm and categoryForm and descriptionForm:
-    Product(name=nameForm, category=categoryForm, description = descriptionForm, price = priceForm).save()
-    return {"success": True, "msg": "Product added successfully"}
+def addProduct(nameForm, descriptionForm, priceForm):
+  if nameForm and descriptionForm:
+    prod = Product(name=nameForm, description = descriptionForm, price = priceForm)
+    prod.save()
+    return {"success": True, "msg": "Product added successfully", "id": prod.id}
   else:
-    return {"success": False, "msg": "Provide name, category and description of the product"}
+    return {"success": False, "msg": "Provide name and description of the product"}
 
 def deleteProduct(productID):
   Product.get(Product.id == productID).delete_instance()
-  return {"success": True, "msg": ""}
+  return {"success": True, "msg": "Product deleted successfully"}
+
+def editProduct(productID, newName, newDescription, newPrice):
+  if newName and newDescription:
+    Product.update(name=newName, description=newDescription, price=newPrice).where(Product.id == productID).execute()
+    return {"success": True, "msg": "Product modified successfully"}
+  else:
+    return {"success": False, "msg": "Provide name and description of the product"}
 
 def getListOfProducts():
   return Product.select()

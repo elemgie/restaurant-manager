@@ -1,5 +1,7 @@
 <RCC>
   <qresource prefix="nowyPrzedrostek">
+    <file>indeks.jpeg</file>
+    <file>rattie.jpg</file>
     <file>rattie.jpg</file>
   </qresource>
 </RCC>

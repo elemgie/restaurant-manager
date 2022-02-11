@@ -26,9 +26,15 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.selectedTableRow = None
     self.tablesTable.horizontalHeader().sortIndicatorChanged.connect(self.tablesTable.clearSelection)
 
-
-
+    # prepare products' table
     self.productsNumber.setNum(db.getNumberOfProducts())
+    self.showTableContents(self.productsTable, db.Product)
+    self.selectedProductsRow = None
+    self.productsTable.horizontalHeader().sortIndicatorChanged.connect(self.productsTable.clearSelection)
+    self.productsTable.horizontalHeader().sortIndicatorChanged.connect(self.productNameInput.clear)
+    self.productsTable.horizontalHeader().sortIndicatorChanged.connect(self.productDescriptionInput.clear)
+    self.productsTable.horizontalHeader().sortIndicatorChanged.connect(self.productPriceInput.clear)
+
     self.openBillsNumber.setNum(db.getNumberOfOpenBills())
 
     # connecting actions
@@ -38,9 +44,16 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.waiterEditButton.clicked.connect(self.editWaiter)
     self.waiterDeleteButton.clicked.connect(self.deleteWaiter)
     self.revenueButton.clicked.connect(self.calculateRevenue)
+
     self.tableAddButton.clicked.connect(self.addTable)
     self.tableDeleteButton.clicked.connect(self.deleteTable)
     self.tablesTable.itemClicked.connect(self.getSelectedTableRow)
+
+    self.productAddButton.clicked.connect(self.addProduct)
+    self.productCardButton.clicked.connect(self.getProductCard)
+    self.productEditButton.clicked.connect(self.editProduct)
+    self.productDeleteButton.clicked.connect(self.deleteProduct)
+    self.productsTable.itemClicked.connect(self.printProductOnSelection)
 
 
     self.MainMenu.show()
@@ -131,7 +144,7 @@ class Window(qtw.QWidget, Ui_MainMenu):
       qtw.QMessageBox.information(None, "Warning", "Choose waiter whose revenue you want to calculate!")
       return
 
-  # Table routines
+  # Table utilities
 
   def addTable(self):
     res = db.addTable()
@@ -156,4 +169,80 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.tablesTable.clearSelection()
     self.selectedTableRow = None
 
+# Product utilities
     
+  def addProduct(self):
+    name = self.productNameInput.text()
+    description = self.productDescriptionInput.text()
+    price = self.productPriceInput.value()
+    self.productNameInput.clear()
+    self.productDescriptionInput.clear()
+    self.productPriceInput.setValue(0.0)
+    res = db.addProduct(name, description, price)
+    if res['success']:
+      self.productsNumber.setNum(db.getNumberOfProducts())
+      self.productsTable.insertRow(self.productsTable.rowCount())
+      self.productsTable.setItem(self.productsTable.rowCount() - 1, 0, qtw.QTableWidgetItem(str(res['id'])))
+      self.productsTable.setItem(self.productsTable.rowCount() - 1, 1, qtw.QTableWidgetItem(name))
+      self.productsTable.setItem(self.productsTable.rowCount() - 1, 2, qtw.QTableWidgetItem(str(price)))
+    self.showInformationWindow(res)
+
+  def printProductOnSelection(self):
+    self.selectedProductsRow = int(self.productsTable.selectionModel().selectedRows()[0].row())
+    self.productNameInput.setText(self.productsTable.item(self.selectedProductsRow, 1).text())
+    self.productPriceInput.setValue(float(self.productsTable.item(self.selectedProductsRow, 2).text()))
+  
+  def getProductCard(self):
+    if self.selectedProductsRow == None:
+      qtw.QMessageBox.information(None, "Warning", "Choose entry to be shown first!")
+      return
+    id = self.productsTable.item(self.selectedProductsRow, 0).text()
+    prod = db.getProduct(id)
+    qtw.QMessageBox.information(None, f"{prod.name} card", f"ID: {prod.id}\nName: {prod.name}\nDescription: {prod.description}\nPrice: {prod.price}")
+
+  def clearAfterProductsTableAlternation(self):
+    self.productNameInput.clear()
+    self.productDescriptionInput.clear()
+    self.productPriceInput.setValue(0.0)
+    self.productsTable.clearSelection()
+    self.selectedProductsRow = None
+
+  def editProduct(self):
+    if self.selectedProductsRow == None:
+      qtw.QMessageBox.information(None, "Warning", "Choose entry to be modified first!")
+      return
+    id = int(self.productsTable.item(self.selectedProductsRow, 0).text())
+    newName = self.productNameInput.text()
+    newDescription = self.productDescriptionInput.text()
+    newPrice = self.productPriceInput.value()
+    oldName = self.productsTable.item(self.selectedProductsRow, 1).text()
+    oldPrice = self.productsTable.item(self.selectedProductsRow, 2).text()
+    oldDescription = db.getProduct(id).description
+
+    confirmationWindow = qtw.QMessageBox
+    ret = confirmationWindow.question(None, "Modification confirmation", f"Do you wish to change the following entry?\n\nOld name: {oldName}\nOld description: {oldDescription}\nOld price: {oldPrice}\n\nNew name: {newName}\nNew description: {newDescription}\nNew price: {newPrice}", qtw.QMessageBox.Yes | qtw.QMessageBox.No)
+    if ret == confirmationWindow.Yes:
+      res = db.editProduct(id, newName, newDescription, newPrice)
+      self.showInformationWindow(res)
+      if res['success']:
+        self.productsTable.setItem(self.selectedProductsRow, 1, qtw.QTableWidgetItem(newName))
+        self.productsTable.setItem(self.selectedProductsRow, 2, qtw.QTableWidgetItem(str(newPrice)))
+        self.clearAfterProductsTableAlternation()
+  
+  def deleteProduct(self):
+    if self.selectedProductsRow == None:
+      qtw.QMessageBox.information(None, "Warning", "Choose entry to be deleted first!")
+      return
+    id = int(self.productsTable.item(self.selectedProductsRow, 0).text())
+    oldName = self.productsTable.item(self.selectedProductsRow, 1).text()
+    oldPrice = self.productsTable.item(self.selectedProductsRow, 2).text()
+    oldDescription = db.getProduct(id).description
+    confirmationWindow = qtw.QMessageBox
+    ret = confirmationWindow.question(None, "Deletion confirmation", f"Do you wish to delete the following entry?\n\nName: {oldName}\nDescription: {oldDescription}\nPrice: {oldPrice}", qtw.QMessageBox.Yes | qtw.QMessageBox.No)
+    if ret == confirmationWindow.Yes:
+      res = db.deleteProduct(id)
+      self.showInformationWindow(res)
+      self.productsTable.removeRow(self.selectedProductsRow)
+      self.productsNumber.setNum(int(self.productsNumber.text()) - 1)
+      if res['success']:
+        self.clearAfterProductsTableAlternation()
