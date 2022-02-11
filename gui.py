@@ -12,7 +12,7 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.MainMenu = qtw.QMainWindow()
     self.setupUi(self.MainMenu)
 
-    # prepare waiters' table
+    # prepare waiters' tab
     self.waitersNumber.setNum(db.getNumberOfWaiters())
     self.showTableContents(self.waitersTable, db.Waiter)
     self.selectedWaitersRow = None
@@ -20,13 +20,13 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.waitersTable.horizontalHeader().sortIndicatorChanged.connect(self.waiterNameInput.clear)
     self.waitersTable.horizontalHeader().sortIndicatorChanged.connect(self.waiterSurnameInput.clear)
 
-    # prepare tables' table
+    # prepare tables' tab
     self.freeTablesNumber.setNum(db.getNumberOfFreeTables())
     self.showTableContents(self.tablesTable, db.Table)
     self.selectedTableRow = None
     self.tablesTable.horizontalHeader().sortIndicatorChanged.connect(self.tablesTable.clearSelection)
 
-    # prepare products' table
+    # prepare products' tab
     self.productsNumber.setNum(db.getNumberOfProducts())
     self.showTableContents(self.productsTable, db.Product)
     self.selectedProductsRow = None
@@ -35,7 +35,9 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.productsTable.horizontalHeader().sortIndicatorChanged.connect(self.productDescriptionInput.clear)
     self.productsTable.horizontalHeader().sortIndicatorChanged.connect(self.productPriceInput.clear)
 
+    # prepare bills' tab
     self.openBillsNumber.setNum(db.getNumberOfOpenBills())
+    self.prepareBillBoxes()
 
     # connecting actions
     self.exitButton.clicked.connect(qtc.QCoreApplication.instance().quit)
@@ -55,6 +57,7 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.productDeleteButton.clicked.connect(self.deleteProduct)
     self.productsTable.itemClicked.connect(self.printProductOnSelection)
 
+    self.billAddButton.clicked.connect(self.addBill)
 
     self.MainMenu.show()
 
@@ -86,6 +89,7 @@ class Window(qtw.QWidget, Ui_MainMenu):
       self.waitersNumber.setNum(db.getNumberOfWaiters())
       self.waitersTable.insertRow(self.waitersTable.rowCount())
       self.waitersTable.setItem(self.waitersTable.rowCount() - 1, 0, qtw.QTableWidgetItem(str(res['id'])))
+      self.billsWaiterInput.addItem(str(name) + " " + str(surname), res['id'])
       self.waitersTable.setItem(self.waitersTable.rowCount() - 1, 1, qtw.QTableWidgetItem(name))
       self.waitersTable.setItem(self.waitersTable.rowCount() - 1, 2, qtw.QTableWidgetItem(surname))
     self.showInformationWindow(res)
@@ -98,8 +102,12 @@ class Window(qtw.QWidget, Ui_MainMenu):
   def clearAfterWaitersTableAlternation(self):
     self.waiterNameInput.clear()
     self.waiterSurnameInput.clear()
+    self.daysBackInput.setValue(0)
     self.waitersTable.clearSelection()
     self.selectedWaitersRow = None
+    self.billsWaiterInput.clear()
+    self.billsTableInput.clear()
+    self.prepareBillBoxes()
 
   def editWaiter(self):
     if self.selectedWaitersRow == None:
@@ -141,9 +149,19 @@ class Window(qtw.QWidget, Ui_MainMenu):
   
   def calculateRevenue(self):
     if self.selectedWaitersRow == None:
-      qtw.QMessageBox.information(None, "Warning", "Choose waiter whose revenue you want to calculate!")
+      qtw.QMessageBox.warning(None, "Warning", "Choose waiter whose revenue you want to calculate!")
       return
-
+    id = int(self.waitersTable.item(self.selectedWaitersRow, 0).text())
+    daysBack = self.daysBackInput.value()
+    res = db.calculateRevenueByWaiter(id, daysBack)
+    self.clearAfterWaitersTableAlternation()
+    if res["success"]:
+      res = res['ret']
+      qtw.QMessageBox.information(None, "Revenue", f"Waiter: {res['name']} {res['surname']}\nPeriod length: {daysBack} days\nRevenue: {res['sum']}")
+    else:
+      qtw.QMessageBox.information(None, "Revenue", f"Specified waiter hasn't made any income")
+  
+  
   # Table utilities
 
   def addTable(self):
@@ -168,6 +186,9 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.freeTablesNumber.setNum(db.getNumberOfFreeTables())
     self.tablesTable.clearSelection()
     self.selectedTableRow = None
+    self.billsWaiterInput.clear()
+    self.billsTableInput.clear()
+    self.prepareBillBoxes()
 
 # Product utilities
     
@@ -246,3 +267,94 @@ class Window(qtw.QWidget, Ui_MainMenu):
       self.productsNumber.setNum(int(self.productsNumber.text()) - 1)
       if res['success']:
         self.clearAfterProductsTableAlternation()
+
+  # Bill utilities
+
+  def prepareBillBoxes(self):
+    tables = db.getListOfFreeTables()
+    waiters = db.getListOfWaiters()
+    for table in tables:
+      self.billsTableInput.addItem(str(table.id))
+    for waiter in waiters:
+      self.billsWaiterInput.addItem(str(waiter.name) + " " + str(waiter.surname), waiter.id)
+
+  def addBill(self):
+    if self.billsTableInput.currentIndex() == -1 or self.billsWaiterInput.currentIndex() == -1:
+      qtw.QMessageBox.warning(None, "Warning", "Choose waiter and available table first!")
+      return
+    waiterID = self.billsWaiterInput.currentData()
+    print(waiterID)
+    return
+    description = self.productDescriptionInput.text()
+    price = self.productPriceInput.value()
+    self.productNameInput.clear()
+    self.productDescriptionInput.clear()
+    self.productPriceInput.setValue(0.0)
+    res = db.addProduct(name, description, price)
+    if res['success']:
+      self.productsNumber.setNum(db.getNumberOfProducts())
+      self.productsTable.insertRow(self.productsTable.rowCount())
+      self.productsTable.setItem(self.productsTable.rowCount() - 1, 0, qtw.QTableWidgetItem(str(res['id'])))
+      self.productsTable.setItem(self.productsTable.rowCount() - 1, 1, qtw.QTableWidgetItem(name))
+      self.productsTable.setItem(self.productsTable.rowCount() - 1, 2, qtw.QTableWidgetItem(str(price)))
+    self.showInformationWindow(res)
+
+  # def printProductOnSelection(self):
+  #   self.selectedProductsRow = int(self.productsTable.selectionModel().selectedRows()[0].row())
+  #   self.productNameInput.setText(self.productsTable.item(self.selectedProductsRow, 1).text())
+  #   self.productPriceInput.setValue(float(self.productsTable.item(self.selectedProductsRow, 2).text()))
+  
+  # def getProductCard(self):
+  #   if self.selectedProductsRow == None:
+  #     qtw.QMessageBox.information(None, "Warning", "Choose entry to be shown first!")
+  #     return
+  #   id = self.productsTable.item(self.selectedProductsRow, 0).text()
+  #   prod = db.getProduct(id)
+  #   qtw.QMessageBox.information(None, f"{prod.name} card", f"ID: {prod.id}\nName: {prod.name}\nDescription: {prod.description}\nPrice: {prod.price}")
+
+  # def clearAfterProductsTableAlternation(self):
+  #   self.productNameInput.clear()
+  #   self.productDescriptionInput.clear()
+  #   self.productPriceInput.setValue(0.0)
+  #   self.productsTable.clearSelection()
+  #   self.selectedProductsRow = None
+
+  # def editProduct(self):
+  #   if self.selectedProductsRow == None:
+  #     qtw.QMessageBox.information(None, "Warning", "Choose entry to be modified first!")
+  #     return
+  #   id = int(self.productsTable.item(self.selectedProductsRow, 0).text())
+  #   newName = self.productNameInput.text()
+  #   newDescription = self.productDescriptionInput.text()
+  #   newPrice = self.productPriceInput.value()
+  #   oldName = self.productsTable.item(self.selectedProductsRow, 1).text()
+  #   oldPrice = self.productsTable.item(self.selectedProductsRow, 2).text()
+  #   oldDescription = db.getProduct(id).description
+
+  #   confirmationWindow = qtw.QMessageBox
+  #   ret = confirmationWindow.question(None, "Modification confirmation", f"Do you wish to change the following entry?\n\nOld name: {oldName}\nOld description: {oldDescription}\nOld price: {oldPrice}\n\nNew name: {newName}\nNew description: {newDescription}\nNew price: {newPrice}", qtw.QMessageBox.Yes | qtw.QMessageBox.No)
+  #   if ret == confirmationWindow.Yes:
+  #     res = db.editProduct(id, newName, newDescription, newPrice)
+  #     self.showInformationWindow(res)
+  #     if res['success']:
+  #       self.productsTable.setItem(self.selectedProductsRow, 1, qtw.QTableWidgetItem(newName))
+  #       self.productsTable.setItem(self.selectedProductsRow, 2, qtw.QTableWidgetItem(str(newPrice)))
+  #       self.clearAfterProductsTableAlternation()
+  
+  # def deleteProduct(self):
+  #   if self.selectedProductsRow == None:
+  #     qtw.QMessageBox.information(None, "Warning", "Choose entry to be deleted first!")
+  #     return
+  #   id = int(self.productsTable.item(self.selectedProductsRow, 0).text())
+  #   oldName = self.productsTable.item(self.selectedProductsRow, 1).text()
+  #   oldPrice = self.productsTable.item(self.selectedProductsRow, 2).text()
+  #   oldDescription = db.getProduct(id).description
+  #   confirmationWindow = qtw.QMessageBox
+  #   ret = confirmationWindow.question(None, "Deletion confirmation", f"Do you wish to delete the following entry?\n\nName: {oldName}\nDescription: {oldDescription}\nPrice: {oldPrice}", qtw.QMessageBox.Yes | qtw.QMessageBox.No)
+  #   if ret == confirmationWindow.Yes:
+  #     res = db.deleteProduct(id)
+  #     self.showInformationWindow(res)
+  #     self.productsTable.removeRow(self.selectedProductsRow)
+  #     self.productsNumber.setNum(int(self.productsNumber.text()) - 1)
+  #     if res['success']:
+  #       self.clearAfterProductsTableAlternation()

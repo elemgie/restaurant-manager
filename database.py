@@ -15,24 +15,37 @@ class BaseModel(Model):
     database = db
 
 class Table(BaseModel):
+  """Represents an instance of a restaurant table"""
+
   id = AutoField()
 
 class Waiter(BaseModel):
+  """Represents an instance of an employed waiter"""
+
   name = TextField()
   surname = TextField()
 
 class Product(BaseModel):
+  """Represents an instance of a product/dish that is in the menu"""
+
   name = TextField()
   price = DecimalField()
   description = TextField()
 
 class Bill(BaseModel):
+  """Represents an instance of a bill
+  
+  Whenever clients sit at the table, bill is created. Furthermore, with orders for specific products being done, the bill is extended and in the end it is closed and clients pay sum specified by it
+  """
+
   tableID = ForeignKeyField(Table, backref='bills')
   waiterID = ForeignKeyField(Waiter, backref='bills')
   date = DateTimeField()
   closed = BooleanField()
 
-class DishOrder(BaseModel): # list of ordered dishes at the bill
+class DishOrder(BaseModel):
+  """Joint table for many-to-many relationship between bill and product"""
+
   billID = ForeignKeyField(Bill, backref='dishorders')
   productID = ForeignKeyField(Product, backref='dishorders')
   quantity = IntegerField()
@@ -40,15 +53,21 @@ class DishOrder(BaseModel): # list of ordered dishes at the bill
 # Database connection utilities
 
 def dbConnect():
+  """Create database and its tables"""
+
   db.connect()
   db.create_tables([Table, Waiter, Product, Bill, DishOrder])
   return {"success": True, "msg": ""}
 
 def dbDisconnect():
+  """Safely disconnect from database engine"""
+
   db.close()
   return {"success": True, "msg": ""}
 
 def addTable():
+  """Create a new table instance and put it into the database"""
+
   table = Table()
   table.save()
   return {"success": True, "msg": "Table added successfully", "id": table.id}
@@ -133,7 +152,7 @@ def addBill(tableID, waiterID): # executed when table is sat at
   if Bill.select().where(tableID == tableID).count() > 0:
     return {"success": False, "msg": "This table is already taken"}
   Bill(waiterID = waiterID, tableID = tableID, date = datetime.datetime.now(), closed = False).save()
-  return {"success": True, "msg": ""} 
+  return {"success": True, "msg": "Bill has been successfully created"} 
 
 def addProductToBill(prodID, billID, quantity):
   DishOrder(billID = billID, productID = prodID, quantity = quantity).save()
@@ -168,4 +187,8 @@ def serveBill(billID):
   return {"success": True, "msg": "Bill has been served"}
 
 def calculateRevenueByWaiter(waiterID, howManyDaysBack):
-  return Waiter.select(Waiter.name, Waiter.surname, fn.SUM(DishOrder.quantity * Product.price).alias("sum")).join(Bill, JOIN.LEFT_OUTER).join(DishOrder).join(Product).where(Waiter.id == waiterID and Bill.date >= datetime.datetime.now() - datetime.timedelta(days = howManyDaysBack)).group_by(Waiter.id).get()
+  res = Waiter.select(Waiter.name, Waiter.surname, fn.SUM(DishOrder.quantity * Product.price).alias("sum")).join(Bill, JOIN.LEFT_OUTER).join(DishOrder).join(Product).where(Waiter.id == waiterID and Bill.date >= datetime.datetime.now() - datetime.timedelta(days = howManyDaysBack)).group_by(Waiter.id)
+  if res.exists():
+    return {"success": True, "ret": res}
+  else:
+    return {"success": False, "ret": None}
