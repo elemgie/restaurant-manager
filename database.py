@@ -17,31 +17,15 @@ class BaseModel(Model):
 class Table(BaseModel):
   id = AutoField()
 
-class Booking(BaseModel):
-  clientName = TextField()
-  beginTime = DateTimeField()
-  endTime = DateTimeField()
-  tableID = ForeignKeyField(Table, backref='bookings')
-
 class Waiter(BaseModel):
   name = TextField()
   surname = TextField()
-  # isAtWork = BooleanField()
 
 class Product(BaseModel):
   name = TextField()
   category = TextField()
   description = TextField()
   price = DecimalField()
-
-class Ingredient(BaseModel):
-  name = TextField()
-  quantity = DecimalField()
-
-class Recipe(BaseModel):
-  productID = ForeignKeyField(Product, backref='recipes')
-  ingredientID = ForeignKeyField(Ingredient, backref='recipes')
-  amountNeeded = DecimalField()
 
 class Bill(BaseModel):
   tableID = ForeignKeyField(Table, backref='bills')
@@ -58,7 +42,7 @@ class DishOrder(BaseModel): # list of ordered dishes at the bill
 
 def dbConnect():
   db.connect()
-  db.create_tables([Table, Booking, Waiter, Product, Ingredient, Recipe, Bill, DishOrder])
+  db.create_tables([Table, Waiter, Product, Bill, DishOrder])
   return {"success": True, "msg": ""}
 
 def dbDisconnect():
