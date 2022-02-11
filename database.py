@@ -50,8 +50,13 @@ def dbDisconnect():
   return {"success": True, "msg": ""}
 
 def addTable():
-  Table.create()
-  return {"success": True, "msg": ""}
+  table = Table()
+  table.save()
+  return {"success": True, "msg": "Table added successfully", "id": table.id}
+
+def deleteTable(tableID):
+  Table.get(Table.id == tableID).delete_instance()
+  return {"success": True, "msg": "Table deleted successfully"}
 
 def getNumberOfFreeTables():
   return Table.select().count() - getNumberOfOpenBills()

@@ -20,9 +20,15 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.waitersTable.horizontalHeader().sortIndicatorChanged.connect(self.waiterNameInput.clear)
     self.waitersTable.horizontalHeader().sortIndicatorChanged.connect(self.waiterSurnameInput.clear)
 
+    # prepare tables' table
+    self.freeTablesNumber.setNum(db.getNumberOfFreeTables())
+    self.showTableContents(self.tablesTable, db.Table)
+    self.selectedTableRow = None
+    self.tablesTable.horizontalHeader().sortIndicatorChanged.connect(self.tablesTable.clearSelection)
+
+
 
     self.productsNumber.setNum(db.getNumberOfProducts())
-    self.freeTablesNumber.setNum(db.getNumberOfFreeTables())
     self.openBillsNumber.setNum(db.getNumberOfOpenBills())
 
     # connecting actions
@@ -32,6 +38,9 @@ class Window(qtw.QWidget, Ui_MainMenu):
     self.waiterEditButton.clicked.connect(self.editWaiter)
     self.waiterDeleteButton.clicked.connect(self.deleteWaiter)
     self.revenueButton.clicked.connect(self.calculateRevenue)
+    self.tableAddButton.clicked.connect(self.addTable)
+    self.tableDeleteButton.clicked.connect(self.deleteTable)
+    self.tablesTable.itemClicked.connect(self.getSelectedTableRow)
 
 
     self.MainMenu.show()
@@ -121,4 +130,30 @@ class Window(qtw.QWidget, Ui_MainMenu):
     if self.selectedWaitersRow == None:
       qtw.QMessageBox.information(None, "Warning", "Choose waiter whose revenue you want to calculate!")
       return
+
+  # Table routines
+
+  def addTable(self):
+    res = db.addTable()
+    if res['success']:
+      self.freeTablesNumber.setNum(db.getNumberOfFreeTables())
+      self.tablesTable.insertRow(self.tablesTable.rowCount())
+      self.tablesTable.setItem(self.tablesTable.rowCount() - 1, 0, qtw.QTableWidgetItem(str(res['id'])))
+    self.showInformationWindow(res)
+
+  def getSelectedTableRow(self):
+    self.selectedTableRow = int(self.tablesTable.selectionModel().selectedRows()[0].row())    
+
+  def deleteTable(self):
+    if self.selectedTableRow == None:
+      qtw.QMessageBox.information(None, "Warning", "Choose entry to be deleted first!")
+      return
+    id = int(self.tablesTable.item(self.selectedTableRow, 0).text())
+    res = db.deleteTable(id)
+    self.showInformationWindow(res)
+    self.tablesTable.removeRow(self.selectedTableRow)
+    self.freeTablesNumber.setNum(db.getNumberOfFreeTables())
+    self.tablesTable.clearSelection()
+    self.selectedTableRow = None
+
     
